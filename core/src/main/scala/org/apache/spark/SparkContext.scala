@@ -60,6 +60,7 @@ import org.apache.spark.scheduler.cluster.{CoarseGrainedSchedulerBackend,
   SparkDeploySchedulerBackend}
 import org.apache.spark.scheduler.cluster.mesos.{CoarseMesosSchedulerBackend, MesosSchedulerBackend}
 import org.apache.spark.scheduler.local.LocalBackend
+import org.apache.spark.scheduler.sparrow.{SparrowScheduler, SparrowSchedulerBackend}
 import org.apache.spark.storage._
 import org.apache.spark.storage.BlockManagerMessages.TriggerThreadDump
 import org.apache.spark.ui.{ConsoleProgressBar, SparkUI}
@@ -2449,6 +2450,13 @@ object SparkContext extends Logging {
         scheduler.initialize(backend)
         (backend, scheduler)
 
+      case SPARROW_REGEX(host, port) =>
+        val scheduler = new SparrowScheduler(sc, host, port, System.getProperty("sparrow.app.name",
+          "spark"))
+        val backend = new SparrowSchedulerBackend(scheduler)
+        scheduler.initialize(backend)
+        (backend, scheduler)
+
       case LOCAL_CLUSTER_REGEX(numSlaves, coresPerSlave, memoryPerSlave) =>
         // Check to make sure memory requested <= memoryPerSlave. Otherwise Spark will just hang.
         val memoryPerSlaveInt = memoryPerSlave.toInt
@@ -2530,6 +2538,11 @@ private object SparkMasterRegex {
   val SPARK_REGEX = """spark://(.*)""".r
   // Regular expression for connection to Mesos cluster by mesos:// or mesos://zk:// url
   val MESOS_REGEX = """mesos://(.*)""".r
+  // Sparrow plugin
+  // Regular expression for connecting to a Sparrow cluster.
+  // TODO: Parse the backups and include them for fault tolerance!
+  val SPARROW_REGEX = """sparrow@([A-Za-z0-9\.]+):([0-9]+)[,.*]*""".r
+
 }
 
 /**
