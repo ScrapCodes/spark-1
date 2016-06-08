@@ -230,6 +230,7 @@ import org.apache.spark.annotation.DeveloperApi
       }
     }
     private def isInitializeComplete = _initializeComplete
+    private[repl] var isSparkInitialized = false
 
     /** the public, go through the future compiler */
 
@@ -1123,6 +1124,7 @@ import org.apache.spark.annotation.DeveloperApi
     }
   }
 
+  var sparkName: List[Name] = List[Name]()
   /** One line of code submitted by the user for interpretation */
   // private
   class Request(val line: String, val trees: List[Tree]) {
@@ -1139,7 +1141,9 @@ import org.apache.spark.annotation.DeveloperApi
 
     /** all (public) names defined by these statements */
     val definedNames = handlers flatMap (_.definedNames)
-
+    if (sparkName.isEmpty && definedNames.exists(_.toString.contains("spark"))) {
+      sparkName = definedNames
+    }
     /** list of names used by this expression */
     val referencedNames: List[Name] = handlers flatMap (_.referencedNames)
 
@@ -1161,7 +1165,7 @@ import org.apache.spark.annotation.DeveloperApi
      * append to objectName to access anything bound by request.
      */
     val SparkComputedImports(importsPreamble, importsTrailer, accessPath) =
-      importsCode(referencedNames.toSet, definedClasses)
+      importsCode(referencedNames.toSet ++ sparkName, definedClasses)
 
     /** Code to access a variable with the specified name */
     def fullPath(vname: String) = {
@@ -1210,8 +1214,9 @@ import org.apache.spark.annotation.DeveloperApi
         |  // If we need to construct any objects defined in the REPL on an executor we will need
         |  // to pass the outer scope to the appropriate encoder.
         |  org.apache.spark.sql.catalyst.encoders.OuterScopes.addOuterScope(this)
-        |  ${indentCode(toCompute)}
-      """.stripMargin
+        """.stripMargin + (if (isSparkInitialized) " import spark.implicits._ \n" else "") +
+        s"""  ${indentCode(toCompute)}
+      """
       val postamble = importsTrailer + "\n}" + "\n" +
         "object " + lineRep.readName + " {\n" +
         "  val INSTANCE = new " + lineRep.readName + "();\n" +

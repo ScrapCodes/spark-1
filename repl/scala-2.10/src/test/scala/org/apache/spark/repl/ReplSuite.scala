@@ -233,7 +233,7 @@ class ReplSuite extends SparkFunSuite {
   }
 
   test("SPARK-1199 two instances of same class don't type check.") {
-    val output = runInterpreter("local-cluster[1,1,1024]",
+    val output = runInterpreter("local",
       """
         |case class Sum(exp: String, exp2: String)
         |val a = Sum("A", "B")
@@ -258,7 +258,7 @@ class ReplSuite extends SparkFunSuite {
     // We need to use local-cluster to test this case.
     val output = runInterpreter("local-cluster[1,1,1024]",
       """
-        |val sqlContext = new org.apache.spark.sql.SQLContext(sc)
+        |@transient val sqlContext = new org.apache.spark.sql.SQLContext(sc)
         |import sqlContext.implicits._
         |case class TestCaseClass(value: Int)
         |sc.parallelize(1 to 10).map(x => TestCaseClass(x)).toDF().collect()
@@ -305,7 +305,7 @@ class ReplSuite extends SparkFunSuite {
   }
 
   test("SPARK-2632 importing a method from non serializable class and not using it.") {
-    val output = runInterpreter("local",
+    val output = runInterpreter("local-cluster[1,1,1024]",
     """
       |class TestClass() { def testMethod = 3 }
       |val t = new TestClass
@@ -313,6 +313,15 @@ class ReplSuite extends SparkFunSuite {
       |case class TestCaseClass(value: Int)
       |sc.parallelize(1 to 10).map(x => TestCaseClass(x)).collect()
     """.stripMargin)
+    assertDoesNotContain("error:", output)
+    assertDoesNotContain("Exception", output)
+  }
+
+  test("SPARK-14146 Use spark implicits in multistatements.") {
+    val output = runInterpreter("local[2]",
+      """
+        |case class Foo(i: Int);Seq(1).toDS()
+      """.stripMargin)
     assertDoesNotContain("error:", output)
     assertDoesNotContain("Exception", output)
   }

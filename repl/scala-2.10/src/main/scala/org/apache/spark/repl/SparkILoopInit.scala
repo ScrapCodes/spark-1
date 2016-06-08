@@ -137,6 +137,7 @@ private[repl] trait SparkILoopInit {
       command("import spark.implicits._")
       command("import spark.sql")
       command("import org.apache.spark.sql.functions._")
+      intp.isSparkInitialized = true
     }
   }
 
