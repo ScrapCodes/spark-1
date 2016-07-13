@@ -17,11 +17,14 @@
 
 package org.apache.spark.sql.execution.datasources.text
 
+import java.io.Closeable
+
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.{FileStatus, Path}
 import org.apache.hadoop.mapreduce.{Job, TaskAttemptContext}
 
 import org.apache.spark.TaskContext
+import org.apache.spark.broadcast.Broadcast
 import org.apache.spark.sql.{AnalysisException, Row, SparkSession}
 import org.apache.spark.sql.catalyst.InternalRow
 import org.apache.spark.sql.catalyst.expressions.UnsafeRow
@@ -101,10 +104,24 @@ class TextFileFormat extends TextBasedFileFormat with DataSourceRegister {
     val broadcastedHadoopConf =
       sparkSession.sparkContext.broadcast(new SerializableConfiguration(hadoopConf))
 
-    (file: PartitionedFile) => {
-      val reader = new HadoopFileLinesReader(file, broadcastedHadoopConf.value.value)
-      Option(TaskContext.get()).foreach(_.addTaskCompletionListener(_ => reader.close()))
+    val wholeText: Boolean = options.getOrElse("wholetext", "false").toBoolean
 
+    readToUnsafeMem(broadcastedHadoopConf, requiredSchema,
+      wholeText)
+  }
+
+  private[datasources] def readToUnsafeMem(conf: Broadcast[SerializableConfiguration],
+      requiredSchema: StructType, wholeTextMode: Boolean):
+  (PartitionedFile) => Iterator[UnsafeRow] = {
+    (file: PartitionedFile) => {
+
+      var reader: Iterator[Text] with Closeable = null
+      if (!wholeTextMode) {
+        reader = new HadoopFileLinesReader(file, conf.value.value)
+      } else {
+        reader = new HadoopFileWholeTextReader(file, conf.value.value)
+      }
+      Option(TaskContext.get()).foreach(_.addTaskCompletionListener(_ => reader.close()))
       if (requiredSchema.isEmpty) {
         val emptyUnsafeRow = new UnsafeRow(0)
         reader.map(_ => emptyUnsafeRow)
