@@ -19,6 +19,8 @@ package org.apache.spark.sql.kafka010
 
 import java.{util => ju}
 
+import org.apache.kafka.clients.producer.KafkaProducer
+
 import org.apache.spark.internal.Logging
 import org.apache.spark.sql.{AnalysisException, SparkSession}
 import org.apache.spark.sql.catalyst.InternalRow
@@ -43,13 +45,27 @@ private[kafka010] object KafkaWriter extends Logging {
 
   override def toString: String = "KafkaWriter"
 
+  def producer(kafkaParameters: ju.Map[String, Object]): KafkaProducer[Array[Byte], Array[Byte]] = {
+    def kafkaProducer = {
+      propertiesHash = kafkaParameters.hashCode()
+      new KafkaProducer[Array[Byte], Array[Byte]](kafkaParameters)
+    }
+    if (kafkaParameters.hashCode() != propertiesHash) {
+      _producer = None
+    }
+    _producer.getOrElse(kafkaProducer)
+  }
+
+  private var propertiesHash: Int = _
+  private var _producer: Option[KafkaProducer[Array[Byte], Array[Byte]]] = None
+
   def validateQuery(
       queryExecution: QueryExecution,
       kafkaParameters: ju.Map[String, Object],
       topic: Option[String] = None): Unit = {
     val schema = queryExecution.logical.output
     schema.find(_.name == TOPIC_ATTRIBUTE_NAME).getOrElse(
-      if (topic == None) {
+      if (topic.isEmpty) {
         throw new AnalysisException(s"topic option required when no " +
           s"'$TOPIC_ATTRIBUTE_NAME' attribute is present. Use the " +
           s"${KafkaSourceProvider.TOPIC_OPTION_KEY} option for setting a topic.")
@@ -88,7 +104,7 @@ private[kafka010] object KafkaWriter extends Logging {
     validateQuery(queryExecution, kafkaParameters, topic)
     SQLExecution.withNewExecutionId(sparkSession, queryExecution) {
       queryExecution.toRdd.foreachPartition { iter =>
-        val writeTask = new KafkaWriteTask(kafkaParameters, schema, topic)
+        val writeTask = new KafkaWriteTask(producer(kafkaParameters), schema, topic)
         Utils.tryWithSafeFinally(block = writeTask.execute(iter))(
           finallyBlock = writeTask.close())
       }

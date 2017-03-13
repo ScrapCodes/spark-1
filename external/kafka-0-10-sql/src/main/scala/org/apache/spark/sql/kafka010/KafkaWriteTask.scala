@@ -31,20 +31,17 @@ import org.apache.spark.sql.types.{BinaryType, StringType}
  * to commit or abort tasks. Exceptions thrown by the implementation of this class will
  * automatically trigger task aborts.
  */
-private[kafka010] class KafkaWriteTask(
-    producerConfiguration: ju.Map[String, Object],
+private[kafka010] class KafkaWriteTask(producer: KafkaProducer[Array[Byte], Array[Byte]],
     inputSchema: Seq[Attribute],
     topic: Option[String]) {
   // used to synchronize with Kafka callbacks
   @volatile private var failedWrite: Exception = null
   private val projection = createProjection
-  private var producer: KafkaProducer[Array[Byte], Array[Byte]] = _
 
   /**
    * Writes key value data out to topics.
    */
   def execute(iterator: Iterator[InternalRow]): Unit = {
-    producer = new KafkaProducer[Array[Byte], Array[Byte]](producerConfiguration)
     while (iterator.hasNext && failedWrite == null) {
       val currentRow = iterator.next()
       val projectedRow = projection(currentRow)
@@ -72,7 +69,6 @@ private[kafka010] class KafkaWriteTask(
       checkForErrors
       producer.close()
       checkForErrors
-      producer = null
     }
   }
 
