@@ -39,7 +39,7 @@ class TextSuite extends QueryTest with SharedSQLContext {
     verifyFrame(spark.read.text(testFile))
   }
 
-  test("reading text file with wholetext option on") {
+  test("reading text file with option wholetext=true") {
     val df = spark.read.option("wholetext", "true")
       .format("text").load(testFile)
     // schema
@@ -59,7 +59,7 @@ class TextSuite extends QueryTest with SharedSQLContext {
     assert(data.length == 1)
   }
 
-  test("reading multiple text files with wholetext option on.") {
+  test("reading multiple text files with option wholetext=true") {
     import org.apache.spark.sql.catalyst.util._
     withTempDir { dir =>
       val file1 = new File(dir, "text1.txt")
