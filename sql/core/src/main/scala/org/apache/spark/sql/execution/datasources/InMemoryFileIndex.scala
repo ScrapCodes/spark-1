@@ -313,8 +313,10 @@ object InMemoryFileIndex extends Logging {
     // We should refactor this logic to not mix metadata files with data files.
     // 2. everything that ends with `._COPYING_`, because this is a intermediate state of file. we
     // should skip this file in case of double reading.
+    // 3. intermediate results of a spark/hadoop job is written to `_temporary` directory.
     val exclude = (pathName.startsWith("_") && !pathName.contains("=")) ||
-      pathName.startsWith(".") || pathName.endsWith("._COPYING_")
+      pathName.startsWith(".") || pathName.endsWith("._COPYING_") ||
+      pathName.startsWith("_temporary")
     val include = pathName.startsWith("_common_metadata") || pathName.startsWith("_metadata")
     exclude && !include
   }
