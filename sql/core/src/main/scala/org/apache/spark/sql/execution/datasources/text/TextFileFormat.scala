@@ -57,6 +57,12 @@ class TextFileFormat extends TextBasedFileFormat with DataSourceRegister {
     }
   }
 
+  override def isSplitable(sparkSession: SparkSession,
+      options: Map[String, String], path: Path): Boolean = {
+    val wholeText: Boolean = options.getOrElse("wholetext", "false").toBoolean
+    super.isSplitable(sparkSession, options, path) && !wholeText
+  }
+
   override def inferSchema(
       sparkSession: SparkSession,
       options: Map[String, String],
@@ -114,13 +120,14 @@ class TextFileFormat extends TextBasedFileFormat with DataSourceRegister {
   private[datasources] def readToUnsafeMem(conf: Broadcast[SerializableConfiguration],
       requiredSchema: StructType, wholeTextMode: Boolean):
   (PartitionedFile) => Iterator[UnsafeRow] = {
+    val confValue = conf.value.value
     (file: PartitionedFile) => {
 
       var reader: Iterator[Text] with Closeable = null
       if (!wholeTextMode) {
-        reader = new HadoopFileLinesReader(file, conf.value.value)
+        reader = new HadoopFileLinesReader(file, confValue)
       } else {
-        reader = new HadoopFileWholeTextReader(file, conf.value.value)
+        reader = new HadoopFileWholeTextReader(file, confValue)
       }
       Option(TaskContext.get()).foreach(_.addTaskCompletionListener(_ => reader.close()))
       if (requiredSchema.isEmpty) {

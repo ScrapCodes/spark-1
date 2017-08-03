@@ -82,6 +82,8 @@ class TextSuite extends QueryTest with SharedSQLContext {
         """.stripMargin))
       assert(data(1) == Row(
         """text file 2 contents.""".stripMargin))
+      assert(data(2) == Row(
+        """text file 3 contents.""".stripMargin))
     }
   }
 
@@ -237,5 +239,4 @@ class TextSuite extends QueryTest with SharedSQLContext {
     assert(data(3) == Row("\"doh\""))
     assert(data.length == 4)
   }
-
 }

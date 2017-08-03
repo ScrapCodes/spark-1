@@ -309,7 +309,7 @@ class DataFrameReader(OptionUtils):
         Each line in the text file is a new row in the resulting DataFrame.
 
         :param paths: string, or list of strings, for input path(s).
-        :param wholetext: if true, read each file from input paths as a single row.
+        :param wholetext: if true, read each file from input path(s) as a single row.
 
         >>> df = spark.read.text('python/test_support/sql/text-test.txt')
         >>> df.collect()
