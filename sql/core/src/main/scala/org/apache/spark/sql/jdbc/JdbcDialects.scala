@@ -216,10 +216,10 @@ abstract class JdbcDialect extends Serializable {
           updateClause += getAddColumnQuery(tableName, name(0), dataType)
         case rename: RenameColumn if rename.fieldNames.length == 1 =>
           val name = rename.fieldNames
-          updateClause += s"ALTER TABLE $tableName RENAME COLUMN ${name(0)} TO ${rename.newName}"
+          updateClause += getRenameColumnQuery(tableName, name(0), rename.newName)
         case delete: DeleteColumn if delete.fieldNames.length == 1 =>
           val name = delete.fieldNames
-          updateClause += s"ALTER TABLE $tableName DROP COLUMN ${name(0)}"
+          updateClause += getDeleteColumnQuery(tableName, name(0))
         case updateColumnType: UpdateColumnType if updateColumnType.fieldNames.length == 1 =>
           val name = updateColumnType.fieldNames
           val dataType = JdbcUtils.getJdbcType(updateColumnType.newDataType(), this)
@@ -234,6 +234,14 @@ abstract class JdbcDialect extends Serializable {
       }
     }
     updateClause.result()
+  }
+
+  def getRenameColumnQuery(tableName: String, columnName: String, newName: String): String = {
+    s"ALTER TABLE $tableName RENAME COLUMN $columnName TO $newName"
+  }
+
+  def getDeleteColumnQuery(tableName: String, columnName: String): String = {
+    s"ALTER TABLE $tableName DROP COLUMN $columnName"
   }
 
   def getAddColumnQuery(tableName: String, columnName: String, dataType: String): String = {
